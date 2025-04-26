@@ -1,3 +1,6 @@
 hub/
 data/
 label/
+.cursor/
+__pycache__/
+
