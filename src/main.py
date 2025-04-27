@@ -39,11 +39,11 @@ def main():
     
     # 训练模型列表
     # models_to_train = ["ResNet18", "EfficientNet-B0"]
-    models_to_train = ["ResNet18"]
+    models_to_train = []
     # 是否启用高级模型
     use_advanced_models = True
     if use_advanced_models:
-        models_to_train.extend(["EfficientNetV2-S"])
+        models_to_train.extend(["Swin-T"])
     
     best_acc = 0.0
     best_model_name = ""

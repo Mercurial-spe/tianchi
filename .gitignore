@@ -5,3 +5,5 @@ label/
 __pycache__/
 Memory_Bank/
 *.md
+.vscode/
+pretrained_models/

@@ -152,9 +152,13 @@ class ModelTrainer:
         end = 0
         total_loss = 0.0
         total_acc = 0
-        for i, (input, target) in enumerate(self.train_loader):
-            input = input.cuda(non_blocking=True)
-            target = target.cuda(non_blocking=True)
+        for i, data in enumerate(self.train_loader):
+            # 确保兼容数据加载器返回多个值的情况
+            if isinstance(data, (list, tuple)) and len(data) >= 2:
+                input = data[0].cuda(non_blocking=True)
+                target = data[1].cuda(non_blocking=True)
+            else:
+                raise ValueError("数据加载器格式不正确，无法获取输入和目标")
 
             # 如果使用Mixup
             if self.use_mixup:

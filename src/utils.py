@@ -36,26 +36,6 @@ def save_model(model, epoch, val_acc, optimizer, save_path="models"):
     print(f"Best model saved to {filename} with accuracy: {val_acc:.4f} at epoch {epoch}")
     return filename
 
-def load_model(model, optimizer, checkpoint_path):
-    """加载模型检查点
-    
-    Args:
-        model: PyTorch模型
-        optimizer: 优化器
-        checkpoint_path: 检查点路径
-    
-    Returns:
-        epoch: 加载的epoch
-        best_acc: 最佳验证准确率
-    """
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
-    val_acc = checkpoint['val_acc']
-    print(f"Model loaded from {checkpoint_path} (epoch: {epoch}, acc: {val_acc:.4f})")
-    return epoch, val_acc
-
 def validate(val_loader, model, criterion, epoch=-1, optimizer=None, best_acc=0.0, save_path="models"):
     """验证模型性能
     
