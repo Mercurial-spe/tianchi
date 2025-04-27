@@ -29,6 +29,6 @@ def get_model(model_name, num_classes=5, pretrained=True, pretrained_path=None):
                             pretrained_path="pretrained_models\EfficientNetV2.safetensors")
     elif model_name == "Swin-T":
         return SwinTransformer(num_classes=num_classes, model_name='swin_tiny_patch4_window7_224', 
-                              pretrained_path="pretrained_modelsswin_tiny_patch4_window7_224.safetensors")
+                              pretrained_path="pretrained_models\swin_tiny_patch4_window7_224.safetensors")
     else:
         raise ValueError(f"未知模型: {model_name}") 

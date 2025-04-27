@@ -57,17 +57,22 @@ def get_train_val_split(train_df):
     print(f"训练集: {len(train_idx)}个样本, 验证集: {len(val_idx)}个样本")
     return train_idx, val_idx
 
-def get_transforms(img_size=IMG_SIZE, is_training=True, use_rand_augment=False):
+def get_transforms(img_size=IMG_SIZE, is_training=True, use_rand_augment=False, model_name=None):
     """获取数据变换，支持不同图像大小和高级增强
     
     Args:
         img_size (tuple or int): 图像大小
         is_training (bool): 是否用于训练
         use_rand_augment (bool): 是否使用RandAugment
+        model_name (str): 模型名称，如果提供，将使用该模型的特定图像尺寸
         
     Returns:
         transforms.Compose: 数据预处理流程
     """
+    # 如果指定了模型名称，且模型配置中有特定的图像尺寸设置，则使用该尺寸
+    if model_name and model_name in MODELS and "img_size" in MODELS[model_name]:
+        img_size = MODELS[model_name]["img_size"]
+        
     if is_training:
         transform_list = [
             transforms.Resize(img_size),
@@ -92,24 +97,28 @@ def get_transforms(img_size=IMG_SIZE, is_training=True, use_rand_augment=False):
             transforms.Normalize(NORMALIZE_MEAN, NORMALIZE_STD)
         ])
 
-def get_train_transforms(use_rand_augment=False):
+def get_train_transforms(use_rand_augment=False, model_name=None):
     """获取训练数据的transforms
     
     Args:
         use_rand_augment (bool): 是否使用RandAugment
+        model_name (str): 模型名称
         
     Returns:
         transforms.Compose: 训练数据预处理流程
     """
-    return get_transforms(IMG_SIZE, True, use_rand_augment)
+    return get_transforms(IMG_SIZE, True, use_rand_augment, model_name)
 
-def get_val_transforms():
+def get_val_transforms(model_name=None):
     """获取验证/测试数据的transforms
     
+    Args:
+        model_name (str): 模型名称
+        
     Returns:
         transforms.Compose: 验证/测试数据预处理流程
     """
-    return get_transforms(IMG_SIZE, False, False)
+    return get_transforms(IMG_SIZE, False, False, model_name)
 
 def mixup_data(x, y, alpha=1.0):
     """实现Mixup数据增强
@@ -223,7 +232,7 @@ class BalancedSampler(torch.utils.data.sampler.Sampler):
         """返回采样器的长度"""
         return len(self.indices)
 
-def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_sampler=False):
+def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_sampler=False, model_name=None):
     """创建训练数据加载器，支持高级增强和平衡采样
     
     Args:
@@ -231,6 +240,7 @@ def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_s
         train_idx (np.array): 训练集索引
         use_rand_augment (bool): 是否使用RandAugment
         use_balanced_sampler (bool): 是否使用平衡采样器
+        model_name (str): 模型名称
         
     Returns:
         DataLoader: 训练数据加载器
@@ -238,7 +248,7 @@ def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_s
     train_dataset = GalaxyDataset(
         train_df[0].iloc[train_idx].values, 
         train_df[1].iloc[train_idx].values,
-        get_train_transforms(use_rand_augment)
+        get_train_transforms(use_rand_augment, model_name)
     )
     
     # 如果启用平衡采样器
@@ -256,12 +266,13 @@ def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_s
     )
     return train_loader
 
-def get_val_loader(train_df, val_idx):
+def get_val_loader(train_df, val_idx, model_name=None):
     """创建验证数据加载器
     
     Args:
         train_df (pd.DataFrame): 训练数据
         val_idx (np.array): 验证集索引
+        model_name (str): 模型名称
         
     Returns:
         DataLoader: 验证数据加载器
@@ -270,7 +281,7 @@ def get_val_loader(train_df, val_idx):
         GalaxyDataset(
             train_df[0].iloc[val_idx].values, 
             train_df[1].iloc[val_idx].values,
-            get_val_transforms()
+            get_val_transforms(model_name)
         ), 
         batch_size=BATCH_SIZE, 
         shuffle=False, 
@@ -279,11 +290,12 @@ def get_val_loader(train_df, val_idx):
     )
     return val_loader
 
-def get_test_loader(test_df):
+def get_test_loader(test_df, model_name=None):
     """创建测试数据加载器
     
     Args:
         test_df (pd.DataFrame): 测试数据
+        model_name (str): 模型名称
         
     Returns:
         DataLoader: 测试数据加载器
@@ -292,7 +304,7 @@ def get_test_loader(test_df):
         GalaxyDataset(
             test_df["path"].values, 
             test_df["label"].values,
-            get_val_transforms()
+            get_val_transforms(model_name)
         ), 
         batch_size=BATCH_SIZE, 
         shuffle=False, 

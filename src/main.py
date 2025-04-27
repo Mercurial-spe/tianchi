@@ -23,17 +23,6 @@ def main():
     train_df = load_train_data()
     train_idx, val_idx = get_train_val_split(train_df)
     
-    # 创建数据加载器
-    print("\n===== 创建数据加载器 =====")
-    # 使用高级数据增强和类别平衡采样器
-    train_loader = get_train_loader(
-        train_df, 
-        train_idx, 
-        use_rand_augment=USE_RAND_AUGMENT,
-        use_balanced_sampler=USE_BALANCED_SAMPLER
-    )
-    val_loader = get_val_loader(train_df, val_idx)
-    
     # 创建保存模型的目录
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
     
@@ -51,6 +40,19 @@ def main():
     # 训练所有模型
     for model_name in models_to_train:
         print(f"\n===== 训练{model_name}模型 =====")
+        
+        # 为当前模型创建特定的数据加载器
+        print(f"\n===== 为{model_name}创建数据加载器 =====")
+        # 使用高级数据增强和类别平衡采样器，传入模型名称以使用正确的图像尺寸
+        train_loader = get_train_loader(
+            train_df, 
+            train_idx, 
+            use_rand_augment=USE_RAND_AUGMENT,
+            use_balanced_sampler=USE_BALANCED_SAMPLER,
+            model_name=model_name
+        )
+        val_loader = get_val_loader(train_df, val_idx, model_name=model_name)
+        
         # 获取模型实例
         model = get_model(model_name)
         
@@ -78,7 +80,7 @@ def main():
     # 测试数据处理和预测
     print("\n===== 测试预测和提交 =====")
     test_df = load_test_data()
-    test_loader = get_test_loader(test_df)
+    test_loader = get_test_loader(test_df, model_name=best_model_name)
     
     # 使用最佳模型预测
     model = get_model(best_model_name)

@@ -26,6 +26,7 @@ MODELS = {
     "Swin-T": {
         "lr": 0.001,
         "epochs": 5,
+        "img_size": (224, 224)  # Swin Transformer需要224x224的输入尺寸
     }
 }
 
@@ -37,7 +38,7 @@ NUM_WORKERS = {
     "test": 10
 }
 PIN_MEMORY = True
-IMG_SIZE = (256, 256)
+IMG_SIZE = (256, 256)  # 默认图像尺寸
 
 # 标签映射
 LABEL_MAPPING = {
