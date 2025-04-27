@@ -18,6 +18,14 @@ MODELS = {
     "EfficientNet-B0": {
         "lr": 0.003,
         "epochs": 5,
+    },
+    "EfficientNetV2-S": {
+        "lr": 0.002,
+        "epochs": 5,
+    },
+    "Swin-T": {
+        "lr": 0.001,
+        "epochs": 5,
     }
 }
 
@@ -50,8 +58,24 @@ MODEL_SAVE_DIR = "models"
 # W&B配置
 USE_WANDB = False
 WANDB_PROJECT = "galaxy-classification"
-WANDB_RUN_NAME = "experiment-1"
+WANDB_RUN_NAME = "experiment-2"
 
 # 图像归一化参数
 NORMALIZE_MEAN = [0.485, 0.456, 0.406]
-NORMALIZE_STD = [0.229, 0.224, 0.225] 
+NORMALIZE_STD = [0.229, 0.224, 0.225]
+
+# 高级功能配置
+# 数据增强
+USE_RAND_AUGMENT = True  # 是否使用RandAugment
+USE_MIXUP = True  # 是否使用Mixup
+MIXUP_ALPHA = 1.0  # Mixup的alpha参数
+
+# 学习率调度
+SCHEDULER_TYPE = "onecycle"  # 学习率调度器类型，可选值: "onecycle", "cosine", None
+
+# 类别平衡
+USE_BALANCED_SAMPLER = True  # 是否使用类别平衡采样器
+
+# 渐进式训练
+USE_PROGRESSIVE_RESIZING = False  # 是否使用渐进式图像大小训练
+PROGRESSIVE_SIZES = [160, 192, 224]  # 渐进式训练图像大小列表 

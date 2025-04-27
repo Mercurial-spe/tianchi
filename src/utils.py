@@ -57,23 +57,39 @@ def load_model(model, optimizer, checkpoint_path):
     return epoch, val_acc
 
 def validate(val_loader, model, criterion, epoch=-1, optimizer=None, best_acc=0.0, save_path="models"):
-    # switch to evaluate mode
+    """验证模型性能
+    
+    Args:
+        val_loader: 验证数据加载器
+        model: 模型
+        criterion: 损失函数
+        epoch: 当前epoch
+        optimizer: 优化器
+        best_acc: 当前最佳准确率
+        save_path: 模型保存路径
+        
+    Returns:
+        current_acc: 当前准确率
+        avg_loss: 平均损失
+        best_acc: 更新后的最佳准确率
+        is_best: 是否是最佳模型
+    """
+    # 切换到评估模式
     model.eval()
 
     total_acc = 0
     total_loss = 0.0
     with torch.no_grad():
-        end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, _) in enumerate(val_loader):
             input = input.cuda()
             target = target.cuda()
 
-            # compute output
+            # 计算输出
             output = model(input)
             loss = criterion(output, target)
             total_loss += loss.item()
 
-            # measure accuracy and record loss
+            # 计算准确率
             total_acc += (output.argmax(1).long() == target.long()).sum().item()
     
     current_acc = total_acc / len(val_loader.dataset)
@@ -86,53 +102,4 @@ def validate(val_loader, model, criterion, epoch=-1, optimizer=None, best_acc=0.
         best_acc = current_acc
         save_model(model, epoch, current_acc, optimizer, save_path)
     
-    return current_acc, avg_loss, best_acc, is_best
-
-def train(train_loader, model, criterion, optimizer, epoch):
-    # switch to train mode
-    model.train()
-
-    end = time.time()
-    total_loss = 0.0
-    total_acc = 0
-    for i, (input, target) in enumerate(train_loader):
-        input = input.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
-
-        # compute output
-        output = model(input)
-        loss = criterion(output, target)
-        acc1 = (output.argmax(1).long() == target.long()).sum().item()
-        total_acc += acc1
-        total_loss += loss.item()
-
-        # compute gradient and do SGD step
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if i % 100 == 0:
-            print(datetime.now(), loss.item(), acc1 / input.size(0))
-    
-    # 计算平均损失和准确率
-    avg_loss = total_loss / len(train_loader)
-    avg_acc = total_acc / len(train_loader.dataset)
-    
-    return avg_loss, avg_acc
-
-def predict(test_loader, model, criterion):
-    # switch to evaluate mode
-    model.eval()
-    pred = [] 
-    with torch.no_grad():
-        end = time.time()
-        for i, (input, target) in enumerate(test_loader):
-            input = input.cuda()
-            target = target.cuda()
-
-            # compute output
-            output = model(input)
-            loss = criterion(output, target)
-
-            pred += list(output.argmax(1).long().cpu().numpy())
-    return pred 
+    return current_acc, avg_loss, best_acc, is_best 

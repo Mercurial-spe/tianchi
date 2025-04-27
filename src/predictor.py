@@ -1,26 +1,26 @@
 """
 预测器模块
-封装模型预测和结果生成的逻辑
+封装模型预测和结果生成的功能
 """
 
 import os
-import numpy as np
 import torch
 import torch.nn as nn
 import pandas as pd
-from src.utils import predict
-from src.config import *
+from tqdm import tqdm
+import time
+from datetime import datetime
 
 class ModelPredictor:
     """模型预测器类
-    封装模型预测和结果生成的逻辑
+    封装模型加载、预测和结果生成的功能
     """
     
     def __init__(self, model, test_loader):
         """初始化预测器
         
         Args:
-            model (nn.Module): 预测模型
+            model (nn.Module): 模型实例
             test_loader (DataLoader): 测试数据加载器
         """
         self.model = model.cuda()
@@ -28,76 +28,89 @@ class ModelPredictor:
         self.criterion = nn.CrossEntropyLoss().cuda()
         
     def load_best_model(self, model_name):
-        """加载最佳模型
+        """加载指定模型的最佳权重
         
         Args:
             model_name (str): 模型名称
-            
-        Returns:
-            bool: 是否成功加载模型
         """
-        best_model_path = os.path.join(MODEL_SAVE_DIR, model_name, "best_model.pth")
-        
-        if os.path.exists(best_model_path):
-            # 加载最佳模型
-            checkpoint = torch.load(best_model_path)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-            print(f"加载最佳模型: {best_model_path}")
-            print(f"模型信息: 准确率 {checkpoint['val_acc']:.4f}, Epoch {checkpoint['epoch']}")
-            return True
-        else:
-            print(f"警告: 未找到最佳模型 {best_model_path}，使用默认模型。")
+        model_path = f"models/{model_name}/best_model.pth"
+        if not os.path.exists(model_path):
+            print(f"警告: 未找到最佳模型权重 {model_path}，使用初始模型")
             return False
-    
+        
+        checkpoint = torch.load(model_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        print(f"加载最佳模型权重: {model_path} (准确率: {checkpoint['val_acc']:.4f}, Epoch: {checkpoint['epoch']})")
+        return True
+        
     def predict(self):
-        """执行预测
+        """对测试集进行预测
         
         Returns:
-            np.array: 预测结果
+            list: 预测的类别索引列表
         """
-        print("开始预测...")
-        pred = predict(self.test_loader, self.model, self.criterion)
-        pred = np.stack(pred)
-        print(f"预测完成，共 {len(pred)} 个样本")
-        return pred
+        # 切换到评估模式
+        self.model.eval()
+        
+        predictions = []
+        img_paths = []
+        
+        # 禁用梯度计算
+        with torch.no_grad():
+            # 使用tqdm显示进度条
+            for i, (inputs, targets, paths) in enumerate(tqdm(self.test_loader, desc="测试预测")):
+                inputs = inputs.cuda()
+                targets = targets.cuda()
+                
+                # 获取模型输出
+                outputs = self.model(inputs)
+                
+                # 获取预测的类别索引
+                _, preds = torch.max(outputs, 1)
+                
+                # 收集结果
+                predictions.extend(preds.cpu().numpy())
+                img_paths.extend(paths)
+        
+        return predictions, img_paths
     
-    def generate_submission(self, pred, output_file="submit.txt"):
-        """生成提交文件
-        
-        Args:
-            pred (np.array): 预测结果
-            output_file (str, optional): 输出文件名. 默认为 "submit.txt".
-            
-        Returns:
-            str: 提交文件路径
-        """
-        # 加载测试数据
-        test_df = pd.read_csv(TEST_DATA_PATH, sep="\t", header=None)
-        
-        # 将数字标签转换为文本标签
-        inverse_mapping_dict = {v: k for k, v in LABEL_MAPPING.items()}
-        inverse_transform = np.vectorize(inverse_mapping_dict.get)
-        test_df["label"] = inverse_transform(pred)
-        
-        # 保存提交文件
-        test_df[[0, "label"]].to_csv(output_file, index=None, sep="\t", header=None)
-        print(f"提交文件已保存为 {output_file}")
-        
-        # 显示类别分布
-        print("预测结果类别分布:")
-        for label, count in test_df["label"].value_counts().items():
-            print(f"  {label}: {count}个样本 ({count/len(test_df)*100:.1f}%)")
-            
-        return output_file
-    
-    def predict_and_submit(self, output_file="submit.txt"):
+    def predict_and_submit(self, output_path=None):
         """预测并生成提交文件
         
         Args:
-            output_file (str, optional): 输出文件名. 默认为 "submit.txt".
-            
-        Returns:
-            str: 提交文件路径
+            output_path (str, optional): 输出文件路径，默认为带有时间戳的文件名
         """
-        pred = self.predict()
-        return self.generate_submission(pred, output_file) 
+        # 生成默认输出路径
+        if output_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = f"submission_{timestamp}.txt"
+            
+        # 开始计时
+        start_time = time.time()
+        
+        # 进行预测
+        predictions, img_paths = self.predict()
+        
+        # 类别索引到标签名称的映射
+        idx_to_label = {v: k for k, v in {
+            '高风险': 0,
+            '中风险': 1,
+            '低风险': 2,
+            '无风险': 3,
+            '非楼道': 4
+        }.items()}
+        
+        # 创建提交文件
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for i, (pred, path) in enumerate(zip(predictions, img_paths)):
+                # 从路径中提取图像文件名
+                img_name = os.path.basename(path)
+                # 获取预测的标签名称
+                label = idx_to_label[pred]
+                # 写入提交格式
+                f.write(f"{img_name}\t{label}\n")
+        
+        # 计算耗时
+        elapsed_time = time.time() - start_time
+        print(f"预测完成，生成提交文件: {output_path} (耗时: {elapsed_time:.2f}秒)")
+        return output_path 
