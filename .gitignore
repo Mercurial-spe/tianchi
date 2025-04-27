@@ -4,3 +4,4 @@ label/
 .cursor/
 __pycache__/
 Memory_Bank/
+*.md
