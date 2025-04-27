@@ -28,6 +28,10 @@ class SwinTransformer(nn.Module):
             num_classes=num_classes
         )
         
+        # 打印模型的img_size参数，用于调试
+        if hasattr(self.model, 'img_size'):
+            print(f"Swin Transformer img_size: {self.model.img_size}")
+        
         # 如果提供了本地预训练权重路径，则加载本地权重
         if pretrained_path and os.path.exists(pretrained_path):
             self._load_pretrained_weights(pretrained_path)
@@ -98,4 +102,9 @@ class SwinTransformer(nn.Module):
         Returns:
             Tensor: 输出张量
         """
+        # 检查输入尺寸，如果大小不是224x224，则调整大小
+        _, _, h, w = x.shape
+        if h != 224 or w != 224:
+            print(f"警告：输入尺寸({h}x{w})不是224x224，这可能导致Swin Transformer模型出错")
+        
         return self.model(x) 

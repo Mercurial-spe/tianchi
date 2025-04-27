@@ -255,10 +255,15 @@ def get_train_loader(train_df, train_idx, use_rand_augment=False, use_balanced_s
     sampler = None
     if use_balanced_sampler:
         sampler = BalancedSampler(train_dataset)
+    
+    # 使用模型特定的批次大小，如果有的话
+    batch_size = BATCH_SIZE
+    if model_name and model_name in MODELS and "batch_size" in MODELS[model_name]:
+        batch_size = MODELS[model_name]["batch_size"]
         
     train_loader = torch.utils.data.DataLoader(
         train_dataset, 
-        batch_size=BATCH_SIZE, 
+        batch_size=batch_size, 
         sampler=sampler,
         shuffle=sampler is None,  # 如果使用采样器，不要shuffle
         num_workers=NUM_WORKERS["train"], 
@@ -277,13 +282,18 @@ def get_val_loader(train_df, val_idx, model_name=None):
     Returns:
         DataLoader: 验证数据加载器
     """
+    # 使用模型特定的批次大小，如果有的话
+    batch_size = BATCH_SIZE
+    if model_name and model_name in MODELS and "batch_size" in MODELS[model_name]:
+        batch_size = MODELS[model_name]["batch_size"]
+        
     val_loader = torch.utils.data.DataLoader(
         GalaxyDataset(
             train_df[0].iloc[val_idx].values, 
             train_df[1].iloc[val_idx].values,
             get_val_transforms(model_name)
         ), 
-        batch_size=BATCH_SIZE, 
+        batch_size=batch_size, 
         shuffle=False, 
         num_workers=NUM_WORKERS["val"], 
         pin_memory=PIN_MEMORY
@@ -300,13 +310,18 @@ def get_test_loader(test_df, model_name=None):
     Returns:
         DataLoader: 测试数据加载器
     """
+    # 使用模型特定的批次大小，如果有的话
+    batch_size = BATCH_SIZE
+    if model_name and model_name in MODELS and "batch_size" in MODELS[model_name]:
+        batch_size = MODELS[model_name]["batch_size"]
+        
     test_loader = torch.utils.data.DataLoader(
         GalaxyDataset(
             test_df["path"].values, 
             test_df["label"].values,
             get_val_transforms(model_name)
         ), 
-        batch_size=BATCH_SIZE, 
+        batch_size=batch_size, 
         shuffle=False, 
         num_workers=NUM_WORKERS["test"], 
         pin_memory=PIN_MEMORY

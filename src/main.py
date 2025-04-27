@@ -27,12 +27,12 @@ def main():
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
     
     # 训练模型列表
-    # models_to_train = ["ResNet18", "EfficientNet-B0"]
-    models_to_train = []
+    models_to_train = ["ResNet18", "EfficientNet-B0"]
+    # models_to_train = []
     # 是否启用高级模型
     use_advanced_models = True
     if use_advanced_models:
-        models_to_train.extend(["Swin-T"])
+        models_to_train.extend(["EfficientNetV2-S","Swin-T"])
     
     best_acc = 0.0
     best_model_name = ""

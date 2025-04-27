@@ -7,6 +7,7 @@ import os
 import torch
 import torch.nn as nn
 import wandb
+import copy
 from src.utils import validate
 from src.config import *
 from src.data_loader import mixup_data, mixup_criterion
@@ -47,10 +48,24 @@ class ModelTrainer:
         os.makedirs(self.save_path, exist_ok=True)
         
         # 获取模型配置
-        self.config = MODELS.get(model_name, {"lr": 0.001, "epochs": 5})
+        self.config = MODELS.get(model_name, {"lr": 0.001, "epochs": 5, "weight_decay": 0.0})
         self.learning_rate = self.config["lr"]
         self.epochs = self.config["epochs"]
-        self.optimizer = torch.optim.Adam(model.parameters(), self.learning_rate)
+        
+        # 添加权重衰减配置
+        self.weight_decay = self.config.get("weight_decay", 0.0)
+        self.optimizer = torch.optim.Adam(
+            model.parameters(), 
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay
+        )
+        
+        # 早停机制配置
+        self.use_early_stopping = USE_EARLY_STOPPING
+        self.patience = PATIENCE
+        self.min_delta = MIN_DELTA
+        self.early_stopping_counter = 0
+        self.best_val_loss = float('inf')
         
         # 学习率调度器
         self.scheduler_type = scheduler_type
@@ -80,25 +95,34 @@ class ModelTrainer:
             float: 最佳验证准确率
         """
         print(f"\n开始训练 {self.model_name} 模型")
-        print(f"学习率: {self.learning_rate}, 训练轮数: {self.epochs}")
+        print(f"学习率: {self.learning_rate}, 权重衰减: {self.weight_decay}, 训练轮数: {self.epochs}")
         
         if self.use_mixup:
             print(f"使用Mixup数据增强, alpha={self.mixup_alpha}")
         
         if self.scheduler_type:
             print(f"使用学习率调度: {self.scheduler_type}")
+            
+        if self.use_early_stopping:
+            print(f"使用早停, 耐心值: {self.patience}, 最小改进: {self.min_delta}")
+        
+        # 保存初始权重用于后续重新加载
+        best_model_state = copy.deepcopy(self.model.state_dict())
         
         # 配置W&B
         if USE_WANDB:
             config = {
                 "model": self.model_name,
                 "learning_rate": self.learning_rate,
+                "weight_decay": self.weight_decay,
                 "epochs": self.epochs,
                 "batch_size": self.train_loader.batch_size,
                 "optimizer": "Adam",
                 "use_mixup": self.use_mixup,
                 "mixup_alpha": self.mixup_alpha if self.use_mixup else None,
-                "scheduler": self.scheduler_type
+                "scheduler": self.scheduler_type,
+                "early_stopping": self.use_early_stopping,
+                "patience": self.patience if self.use_early_stopping else None
             }
             wandb.config.update(config)
         
@@ -118,6 +142,23 @@ class ModelTrainer:
             )
             print(f"验证损失: {val_loss:.4f}, 验证准确率: {val_acc:.4f}, 最佳准确率: {self.best_acc:.4f}")
             
+            # 如果是最佳模型，保存状态
+            if is_best:
+                best_model_state = copy.deepcopy(self.model.state_dict())
+            
+            # 早停检查
+            if self.use_early_stopping:
+                if val_loss < self.best_val_loss - self.min_delta:
+                    self.best_val_loss = val_loss
+                    self.early_stopping_counter = 0
+                else:
+                    self.early_stopping_counter += 1
+                    print(f"Early stopping counter: {self.early_stopping_counter}/{self.patience}")
+                    
+                    if self.early_stopping_counter >= self.patience:
+                        print(f"早停触发！验证损失 {self.patience} 轮未改善")
+                        break
+            
             # 余弦退火学习率调整在epoch结束时更新
             if self.scheduler_type == 'cosine':
                 self.scheduler.step()
@@ -131,8 +172,12 @@ class ModelTrainer:
                     "val_loss": val_loss,
                     "val_acc": val_acc,
                     "best_acc": self.best_acc,
-                    "learning_rate": self.optimizer.param_groups[0]['lr']
+                    "learning_rate": self.optimizer.param_groups[0]['lr'],
+                    "early_stop_counter": self.early_stopping_counter if self.use_early_stopping else 0
                 })
+        
+        # 训练结束，加载最佳模型状态
+        self.model.load_state_dict(best_model_state)
         
         print(f"{self.model_name} 训练完成。最佳验证准确率: {self.best_acc:.4f}")
         return self.best_acc
